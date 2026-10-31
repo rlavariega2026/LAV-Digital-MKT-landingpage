@@ -62,3 +62,15 @@ jobs:
           bye
           EOF
           echo "Publicado únicamente index.html en public_html/index.html"
+
+      - name: Verificar qué versión entrega el dominio
+        run: |
+          set -euo pipefail
+          for URL in "https://lavdigitalmkt.com/" "https://lavdigitalmkt.com/public_html/" "https://lavdigitalmkt.com/index.html" "https://lavdigitalmkt.com/public_html/index.html"; do
+            echo "===== $URL ====="
+            curl -L --max-time 25 -sS -D /tmp/headers "$URL?verify=${GITHUB_SHA}" -o /tmp/page || true
+            head -n 1 /tmp/headers || true
+            grep -Eio '<title>[^<]+' /tmp/page | head -n 1 || true
+            grep -Eo 'Cotizar por WhatsApp|Lo que no se ve|Tarjetas digitales NFC|Marketing digital|Diseño gráfico' /tmp/page | sort | uniq -c || true
+            wc -c /tmp/page || true
+          done
