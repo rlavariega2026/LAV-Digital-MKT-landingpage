@@ -1,4 +1,4 @@
-name: Probar conexión FTP Hostinger
+name: Diagnosticar ruta FTP de Hostinger
 
 on:
   workflow_dispatch:
@@ -9,7 +9,7 @@ on:
       - '.github/workflows/ftp-connection-test.yml'
 
 jobs:
-  test-ftp:
+  diagnose-ftp:
     runs-on: ubuntu-latest
     steps:
       - name: Instalar cliente FTP
@@ -17,7 +17,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y lftp
 
-      - name: Comprobar conexión y carpeta remota
+      - name: Identificar carpeta real del sitio
         env:
           FTP_SERVER: ${{ secrets.FTP_SERVER }}
           FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
@@ -32,14 +32,21 @@ jobs:
               exit 1
             fi
           done
-
-          echo "Conectando al servidor FTP y comprobando la carpeta remota..."
           lftp -u "$FTP_USERNAME","$FTP_PASSWORD" -p "$FTP_PORT" "$FTP_SERVER" <<EOF
           set ftp:ssl-allow no
           set net:max-retries 1
           set net:timeout 20
-          cls "$FTP_SERVER_DIR"
+          set cmd:fail-exit yes
+          echo "DIRECTORIO INICIAL FTP:"
+          pwd
+          echo "CONTENIDO DEL DIRECTORIO INICIAL:"
+          cls -la
+          echo "VALOR CONFIGURADO EN FTP_SERVER_DIR:"
+          cd "$FTP_SERVER_DIR"
+          pwd
+          echo "CONTENIDO DE FTP_SERVER_DIR:"
+          cls -la
+          echo "ARCHIVOS index.html EN LA RUTA CONFIGURADA:"
+          find . -name index.html
           bye
           EOF
-
-          echo "Conexión FTP y acceso a la carpeta remotos comprobados."
