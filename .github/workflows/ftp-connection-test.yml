@@ -1,4 +1,4 @@
-name: Diagnosticar ruta FTP de Hostinger
+name: Diagnosticar raíz real del dominio en Hostinger
 
 on:
   workflow_dispatch:
@@ -14,7 +14,7 @@ jobs:
     steps:
       - name: Instalar cliente FTP
         run: sudo apt-get update && sudo apt-get install -y lftp
-      - name: Inspeccionar public_html desde la raíz FTP
+      - name: Comparar carpetas candidatas sin modificar archivos
         env:
           FTP_SERVER: ${{ secrets.FTP_SERVER }}
           FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
@@ -27,12 +27,28 @@ jobs:
           set net:max-retries 1
           set net:timeout 20
           set cmd:fail-exit yes
-          echo "RAIZ FTP"
+          echo "FTP HOME"
           pwd
-          echo "PUBLIC_HTML DIRECTO"
+          cls -la
+          echo "CARPETA domains"
+          cd domains
+          pwd
+          cls -la
+          echo "DOMINIO lavdigitalmkt.com"
+          cd lavdigitalmkt.com
+          pwd
+          cls -la
+          echo "RAIZ PUBLIC_HTML DEL DOMINIO"
           cd public_html
           pwd
           cls -la
-          echo "FIN"
+          echo "REGRESO FTP HOME"
+          cd /
+          pwd
+          echo "CARPETA public_html DIRECTA"
+          cd public_html
+          pwd
+          cls -la
+          echo "FIN DEL DIAGNOSTICO"
           bye
           EOF
