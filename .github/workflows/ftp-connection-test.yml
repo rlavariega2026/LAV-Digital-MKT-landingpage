@@ -13,40 +13,30 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Instalar cliente FTP
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y lftp
-
-      - name: Identificar carpeta real del sitio
+        run: sudo apt-get update && sudo apt-get install -y lftp
+      - name: Inspeccionar rutas relativas del dominio
         env:
           FTP_SERVER: ${{ secrets.FTP_SERVER }}
           FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
           FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
           FTP_PORT: ${{ secrets.FTP_PORT }}
-          FTP_SERVER_DIR: ${{ secrets.FTP_SERVER_DIR }}
         run: |
           set -euo pipefail
-          for name in FTP_SERVER FTP_USERNAME FTP_PASSWORD FTP_PORT FTP_SERVER_DIR; do
-            if [ -z "${!name:-}" ]; then
-              echo "::error::Falta el secreto $name o está vacío."
-              exit 1
-            fi
-          done
-          lftp -u "$FTP_USERNAME","$FTP_PASSWORD" -p "$FTP_PORT" "$FTP_SERVER" <<EOF
+          lftp -u "$FTP_USERNAME","$FTP_PASSWORD" -p "$FTP_PORT" "$FTP_SERVER" <<'EOF'
           set ftp:ssl-allow no
           set net:max-retries 1
           set net:timeout 20
           set cmd:fail-exit yes
-          echo "DIRECTORIO INICIAL FTP:"
+          echo "FTP HOME"
           pwd
-          echo "CONTENIDO DEL DIRECTORIO INICIAL:"
           cls -la
-          echo "VALOR CONFIGURADO EN FTP_SERVER_DIR:"
-          cd "$FTP_SERVER_DIR"
+          echo "DIRECTORIO DEL DOMINIO"
+          cd lavdigitalmkt.com
           pwd
-          echo "CONTENIDO DE FTP_SERVER_DIR:"
           cls -la
-          echo "ARCHIVOS index.html EN LA RUTA CONFIGURADA:"
-          find . -name index.html
+          echo "PUBLIC_HTML"
+          cd public_html
+          pwd
+          cls -la
           bye
           EOF
