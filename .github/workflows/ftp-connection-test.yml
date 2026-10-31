@@ -2,6 +2,11 @@ name: Probar conexión FTP Hostinger
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/ftp-connection-test.yml'
 
 jobs:
   test-ftp:
