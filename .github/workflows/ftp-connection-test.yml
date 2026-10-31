@@ -1,0 +1,40 @@
+name: Probar conexión FTP Hostinger
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test-ftp:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Instalar cliente FTP
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y lftp
+
+      - name: Comprobar conexión y carpeta remota
+        env:
+          FTP_SERVER: ${{ secrets.FTP_SERVER }}
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+          FTP_PORT: ${{ secrets.FTP_PORT }}
+          FTP_SERVER_DIR: ${{ secrets.FTP_SERVER_DIR }}
+        run: |
+          set -euo pipefail
+          for name in FTP_SERVER FTP_USERNAME FTP_PASSWORD FTP_PORT FTP_SERVER_DIR; do
+            if [ -z "${!name:-}" ]; then
+              echo "::error::Falta el secreto $name o está vacío."
+              exit 1
+            fi
+          done
+
+          echo "Conectando al servidor FTP y comprobando la carpeta remota..."
+          lftp -u "$FTP_USERNAME","$FTP_PASSWORD" -p "$FTP_PORT" "$FTP_SERVER" <<EOF
+          set ftp:ssl-allow no
+          set net:max-retries 1
+          set net:timeout 20
+          cls "$FTP_SERVER_DIR"
+          bye
+          EOF
+
+          echo "Conexión FTP y acceso a la carpeta remotos comprobados."
