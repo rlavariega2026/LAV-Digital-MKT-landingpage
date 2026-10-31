@@ -7,6 +7,7 @@ on:
       - main
     paths:
       - 'index.html'
+      - 'assets/**'
       - '.github/workflows/deploy-hostinger.yml'
 
 jobs:
@@ -43,7 +44,7 @@ jobs:
             exit 1
           fi
 
-      - name: Publicar únicamente index.html en public_html
+      - name: Publicar landing e imágenes en public_html
         env:
           FTP_SERVER: ${{ secrets.FTP_SERVER }}
           FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
@@ -59,9 +60,10 @@ jobs:
           set cmd:fail-exit yes
           cd "$TARGET_DIR"
           put index.html -o index.html
+          mirror -R --verbose assets assets
           bye
           EOF
-          echo "Publicado únicamente index.html en public_html/index.html"
+          echo "Publicados index.html y recursos de assets/ en public_html"
 
       - name: Verificar qué versión entrega el dominio
         run: |
