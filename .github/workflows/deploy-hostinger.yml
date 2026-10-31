@@ -37,7 +37,7 @@ jobs:
               exit 1
             fi
           done
-          grep -Fq '777 441 8793' index.html
+          grep -Fq '527774418793' index.html
           grep -Fq '$350 MXN' index.html
           if grep -Fq '777 107 9192' index.html; then
             echo "::error::El archivo todavía contiene el WhatsApp anterior."
