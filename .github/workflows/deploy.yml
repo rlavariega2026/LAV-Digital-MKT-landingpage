@@ -30,6 +30,11 @@ jobs:
           local-dir: ./
           server-dir: domains/lavdigitalmkt.com/public_html/tarjetas-nfc/
           exclude: |
+            .git/**
+            .git*
+            **/.git/**
             **/.git*
+            .github/**
             **/.github/**
+            README.md
             **/README.md
