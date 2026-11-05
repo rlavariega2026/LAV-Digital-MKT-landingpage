@@ -1,4 +1,4 @@
-name: Deploy LAV Tarjetas NFC to Hostinger
+name: Deploy LAV Digital MKT landing page to Hostinger
 
 on:
   push:
@@ -7,19 +7,19 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: deploy-tarjetas-nfc
+  group: deploy-lav-digital-mkt-root
   cancel-in-progress: true
 
 jobs:
   deploy:
-    name: Deploy landing page via FTP
+    name: Publish landing page to public
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Deploy to Hostinger
+      - name: Deploy landing page to Hostinger public folder
         uses: SamKirkland/FTP-Deploy-Action@v4.3.6
         with:
           server: ${{ secrets.FTP_SERVER }}
@@ -28,7 +28,7 @@ jobs:
           port: ${{ secrets.FTP_PORT }}
           protocol: ftp
           local-dir: ./
-          server-dir: domains/lavdigitalmkt.com/public_html/tarjetas-nfc/
+          server-dir: public/
           exclude: |
             .git/**
             .git*
@@ -38,52 +38,5 @@ jobs:
             **/.github/**
             README.md
             **/README.md
-
-      - name: Remove previously uploaded Git metadata from Hostinger
-        env:
-          FTP_SERVER: ${{ secrets.FTP_SERVER }}
-          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
-          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
-          FTP_PORT: ${{ secrets.FTP_PORT }}
-        run: |
-          python3 - <<'PY'
-          import ftplib
-          import os
-          import posixpath
-
-          host = os.environ["FTP_SERVER"]
-          username = os.environ["FTP_USERNAME"]
-          password = os.environ["FTP_PASSWORD"]
-          port = int(os.environ.get("FTP_PORT") or 21)
-          target = "domains/lavdigitalmkt.com/public_html/tarjetas-nfc"
-
-          ftp = ftplib.FTP()
-          ftp.connect(host, port, timeout=30)
-          ftp.login(username, password)
-          ftp.cwd(target)
-
-          def remove_tree(path):
-              original = ftp.pwd()
-              ftp.cwd(path)
-              entries = list(ftp.mlsd())
-              for name, facts in entries:
-                  if name in (".", ".."):
-                      continue
-                  kind = facts.get("type", "")
-                  if kind == "dir":
-                      remove_tree(name)
-                  elif kind not in ("cdir", "pdir"):
-                      ftp.delete(name)
-              ftp.cwd(original)
-              ftp.rmd(path)
-
-          try:
-              ftp.cwd(".git")
-          except ftplib.error_perm:
-              print("No existe .git en el directorio publicado; no hay nada que limpiar.")
-          else:
-              ftp.cwd("..")
-              remove_tree(".git")
-              print("Se eliminó .git del directorio público de tarjetas-nfc.")
-          ftp.quit()
-          PY
+            LEEME.txt
+            **/LEEME.txt
