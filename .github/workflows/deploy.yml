@@ -12,14 +12,14 @@ concurrency:
 
 jobs:
   deploy:
-    name: Publish landing page to public
+    name: Publish landing page to domain root
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Deploy landing page to Hostinger public folder
+      - name: Deploy landing page directly to Hostinger public_html root
         uses: SamKirkland/FTP-Deploy-Action@v4.3.6
         with:
           server: ${{ secrets.FTP_SERVER }}
@@ -28,7 +28,7 @@ jobs:
           port: ${{ secrets.FTP_PORT }}
           protocol: ftp
           local-dir: ./
-          server-dir: public/
+          server-dir: ./
           exclude: |
             .git/**
             .git*
