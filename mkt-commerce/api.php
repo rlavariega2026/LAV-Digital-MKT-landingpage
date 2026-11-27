@@ -53,7 +53,7 @@ try{
  $raw=file_get_contents('php://input',false,null,0,65537);if(strlen($raw)>65536)fail('Solicitud demasiado grande.',413);$d=json_decode($raw,true,512,JSON_THROW_ON_ERROR);if(!is_array($d))fail('Datos inválidos.');
  $test=isTest($cfg);$testAuthorized=authorizedTest($cfg,$d);$effective=$cfg;
  if($test)$effective['enabled']=$testAuthorized;elseif(($cfg['environment']??'')!=='production')$effective['enabled']=false;
- if($action==='quote'){ $q=calculate($d,$cat,$effective);unset($q['lines']);$q['test']=$testAuthorized; if($testAuthorized)$q['message']='MODO DE PRUEBA: utiliza únicamente la tarjeta de prueba de Mercado Pago. No se procesará un pedido real.';send($q);}
+ if($action==='quote'){ $q=calculate($d,$cat,$effective);unset($q['lines']);$q['test']=$testAuthorized; if($testAuthorized&&$q['payable'])$q['message']='MODO DE PRUEBA: utiliza únicamente la tarjeta de prueba de Mercado Pago. No se procesará un pedido real.';elseif($testAuthorized&&!$q['payable'])$q['message']='Prueba autorizada, pero falta validar la configuración de pago o el envío. Prueba primero un producto digital.';elseif(!$q['payable']&&is_string($d['test_key']??null)&&$d['test_key']!=='')$q['message']='No se pudo habilitar el modo de prueba. Revisa que el archivo privado de configuración de Hostinger contenga environment=test y test_key exactamente como el enlace de prueba.';send($q);}
  if($action==='webhook'){
  $id=(string)($d['data']['id']??'');$queryId=(string)($_GET['data_id']??'');$req=$_SERVER['HTTP_X_REQUEST_ID']??'';$sig=$_SERVER['HTTP_X_SIGNATURE']??'';
  if(($d['type']??'')!=='order'||$id!==$queryId||!validSignature($id,$req,$sig,(string)($cfg['webhook_secret']??'')))fail('Firma inválida.',401);
