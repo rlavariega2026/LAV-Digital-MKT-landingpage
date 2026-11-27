@@ -1,0 +1,183 @@
+{
+  "currency": "MXN",
+  "items": [
+    {
+      "id": "qr",
+      "name": "Código QR personalizado",
+      "price": 250,
+      "physical": false,
+      "displays": 0,
+      "quote": false
+    },
+    {
+      "id": "digital",
+      "name": "Tarjeta digital personalizada sin tarjeta física",
+      "price": 400,
+      "physical": false,
+      "displays": 0,
+      "quote": false
+    },
+    {
+      "id": "nfc",
+      "name": "Tarjetas digitales NFC",
+      "price": 500,
+      "physical": true,
+      "displays": 0,
+      "quote": false
+    },
+    {
+      "id": "landing",
+      "name": "Landing page",
+      "price": 500,
+      "physical": false,
+      "displays": 0,
+      "quote": false
+    },
+    {
+      "id": "web",
+      "name": "Página web profesional",
+      "price": 2500,
+      "physical": false,
+      "displays": 0,
+      "quote": true
+    },
+    {
+      "id": "app",
+      "name": "Creación de apps a la medida",
+      "price": 1000,
+      "physical": false,
+      "displays": 0,
+      "quote": true
+    },
+    {
+      "id": "invite",
+      "name": "Invitaciones digitales",
+      "price": 500,
+      "physical": false,
+      "displays": 0,
+      "quote": false
+    },
+    {
+      "id": "design",
+      "name": "Diseño gráfico",
+      "price": 500,
+      "physical": false,
+      "displays": 0,
+      "quote": true
+    },
+    {
+      "id": "marketing",
+      "name": "Marketing digital",
+      "price": 500,
+      "physical": false,
+      "displays": 0,
+      "quote": true
+    },
+    {
+      "id": "drone",
+      "name": "Sesión de fotografía con drone (media hora)",
+      "price": 500,
+      "physical": false,
+      "displays": 0,
+      "quote": true
+    },
+    {
+      "id": "wifi",
+      "name": "Tarjeta NFC de conexión directa a WiFi",
+      "price": 350,
+      "physical": true,
+      "displays": 0,
+      "quote": false
+    },
+    {
+      "id": "double",
+      "name": "Paquete doble: 2 tarjetas PVC NFC",
+      "price": 750,
+      "physical": true,
+      "displays": 0,
+      "quote": false
+    },
+    {
+      "id": "business",
+      "name": "Paquete negocio",
+      "price": 900,
+      "physical": true,
+      "displays": 1,
+      "quote": false
+    },
+    {
+      "id": "double-display",
+      "name": "Paquete doble display",
+      "price": 1050,
+      "physical": true,
+      "displays": 2,
+      "quote": false
+    },
+    {
+      "id": "display-small",
+      "name": "Display compacto de PVC con QR",
+      "price": 750,
+      "physical": true,
+      "displays": 0,
+      "quote": false
+    },
+    {
+      "id": "display-large",
+      "name": "Display grande de PVC con QR",
+      "price": 900,
+      "physical": true,
+      "displays": 0,
+      "quote": false
+    }
+  ],
+  "zones": [
+    {
+      "id": "A",
+      "label": "0 a 250 km",
+      "max": 250,
+      "price": 150
+    },
+    {
+      "id": "B",
+      "label": "Más de 250 a 500 km",
+      "max": 500,
+      "price": 170
+    },
+    {
+      "id": "C",
+      "label": "Más de 500 a 1,000 km",
+      "max": 1000,
+      "price": 190
+    },
+    {
+      "id": "D",
+      "label": "Más de 1,000 a 1,600 km",
+      "max": 1600,
+      "price": 200
+    },
+    {
+      "id": "E",
+      "label": "Más de 1,600 a 2,200 km",
+      "max": 2200,
+      "price": 210
+    },
+    {
+      "id": "F",
+      "label": "Más de 2,200 a 2,800 km",
+      "max": 2800,
+      "price": 220
+    },
+    {
+      "id": "G",
+      "label": "Más de 2,800 km",
+      "max": null,
+      "price": 230
+    }
+  ],
+  "express": {
+    "price": 335,
+    "carrier": "Estafeta",
+    "eta": "1 a 3 días hábiles",
+    "limit": "Hasta 1 kg de peso cobrable; cobertura habitual"
+  }
+}

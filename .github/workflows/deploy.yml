@@ -19,6 +19,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Validate commerce and shipping calculations
+        run: |
+          php -l mkt-commerce/api.php
+          php mkt-commerce/tests/shipping.php
+          node --check mkt-commerce/store.js
       - name: Deploy landing page directly to Hostinger public_html root
         uses: SamKirkland/FTP-Deploy-Action@v4.3.6
         with:
@@ -40,3 +45,5 @@ jobs:
             **/README.md
             LEEME.txt
             **/LEEME.txt
+            mkt-commerce/tests/**
+            mkt-commerce/config.example.php
