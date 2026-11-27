@@ -23,6 +23,7 @@ jobs:
         run: |
           php -l mkt-commerce/api.php
           php mkt-commerce/tests/shipping.php
+          php mkt-commerce/tests/orders.php
           node --check mkt-commerce/store.js
       - name: Deploy landing page directly to Hostinger public_html root
         uses: SamKirkland/FTP-Deploy-Action@v4.3.6
@@ -94,7 +95,7 @@ jobs:
               await p.locator('#mktLines button').first().click();
               await p.locator('#mktClose').click();
               await p.locator('[data-mkt-item="digital"] .mkt-add').click();
-              assert(await p.locator('#mktPhysical').isHidden());
+              await p.locator('#mktPhysical').waitFor({state:'hidden',timeout:10000});
               await p.waitForFunction(()=>document.querySelector('#mktTotals').textContent.includes('400.00'));
               assert.equal(errors.length,0,errors.join('; '));
               console.log('PUBLIC_CART_OK',width);

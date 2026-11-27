@@ -20,28 +20,57 @@ function ordersDir():string{$dir=dirname(__DIR__,2).'/lav-mkt-orders';if(!is_dir
 function orderPath(string $r):string{if(!preg_match('/^[a-f0-9]{32}$/D',$r))fail('Referencia inválida.');return ordersDir().'/'.$r.'.json';}
 function saveOrder(array $o):void{$p=orderPath($o['reference']);$tmp=$p.'.'.bin2hex(random_bytes(6));if(file_put_contents($tmp,json_encode($o,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),LOCK_EX)===false)fail('No se pudo guardar pedido.',503);chmod($tmp,0600);if(!rename($tmp,$p))fail('No se pudo guardar pedido.',503);}
 function readOrder(string $r):array{$p=orderPath($r);if(!is_file($p))fail('Pedido no encontrado.',404);return json_decode(file_get_contents($p),true,512,JSON_THROW_ON_ERROR);}
-function mp(array $cfg,string $path,?array $body=null):array{$c=curl_init('https://api.mercadopago.com'.$path);curl_setopt_array($c,[CURLOPT_RETURNTRANSFER=>true,CURLOPT_CONNECTTIMEOUT=>10,CURLOPT_TIMEOUT=>25,CURLOPT_HTTPHEADER=>['Authorization: Bearer '.$cfg['access_token'],'Content-Type: application/json'],CURLOPT_SSL_VERIFYPEER=>true]);if($body!==null){curl_setopt($c,CURLOPT_POST,true);curl_setopt($c,CURLOPT_POSTFIELDS,json_encode($body,JSON_THROW_ON_ERROR));}$raw=curl_exec($c);$status=curl_getinfo($c,CURLINFO_HTTP_CODE);curl_close($c);if($raw===false||$status<200||$status>=300)fail('Mercado Pago no disponible. Intenta más tarde.',502);return json_decode($raw,true,512,JSON_THROW_ON_ERROR);}
-function payment(array $cfg,string $id,?string $expected=null):array{if(!preg_match('/^\d{1,25}$/D',$id))fail('Pago inválido.');$p=mp($cfg,'/v1/payments/'.$id);$r=(string)($p['external_reference']??'');if($expected!==null&&!hash_equals($expected,$r))fail('Referencia de pago incorrecta.',403);$o=readOrder($r);if((string)($p['collector_id']??'')!==(string)$cfg['merchant_id']||($p['currency_id']??'')!=='MXN'||(int)round((float)($p['transaction_amount']??0)*100)!==(int)$o['total']*100)fail('Pago no coincide con el pedido.',409);if(($p['status']??'')==='approved'){$o['status']='paid';$o['payment_id']=$id;saveOrder($o);}return ['status'=>$o['status'],'reference'=>$r];}
+function mp(array $cfg,string $path,?array $body=null,?string $idem=null):array{$c=curl_init('https://api.mercadopago.com'.$path);curl_setopt_array($c,[CURLOPT_RETURNTRANSFER=>true,CURLOPT_CONNECTTIMEOUT=>10,CURLOPT_TIMEOUT=>15,CURLOPT_HTTPHEADER=>['Authorization: Bearer '.$cfg['access_token'],'Content-Type: application/json','Accept: application/json',...($idem?['X-Idempotency-Key: '.$idem]:[])],CURLOPT_SSL_VERIFYPEER=>true]);if($body!==null){curl_setopt($c,CURLOPT_POST,true);curl_setopt($c,CURLOPT_POSTFIELDS,json_encode($body,JSON_THROW_ON_ERROR));}$raw=curl_exec($c);$status=curl_getinfo($c,CURLINFO_HTTP_CODE);curl_close($c);if($raw===false||$status<200||$status>=300)fail('Mercado Pago no disponible. Intenta más tarde.',502);return json_decode($raw,true,512,JSON_THROW_ON_ERROR);}
+function isTest(array $cfg):bool{return ($cfg['environment']??'')==='test';}
+function uuid():string{$b=random_bytes(16);$b[6]=chr((ord($b[6])&15)|64);$b[8]=chr((ord($b[8])&63)|128);return vsprintf('%s%s-%s-%s-%s-%s%s%s',str_split(bin2hex($b),4));}
+function authorizedTest(array $cfg,array $d):bool{return isTest($cfg)&&is_string($cfg['test_key']??null)&&strlen($cfg['test_key'])>=20&&is_string($d['test_key']??null)&&hash_equals($cfg['test_key'],$d['test_key']);}
+function validOrderId(string $id):bool{return preg_match('/^ORD[A-Z0-9]{10,60}$/D',$id)===1;}
+function orderPayload(array $q,string $ref,string $email):array{
+ $items=array_map(static fn($l)=>['title'=>$l['title'],'quantity'=>$l['quantity'],'unit_price'=>number_format($l['unit_price'],2,'.','')],$q['lines']);
+ if($q['shipping'])$items[]=['title'=>'Envío '.($q['method']==='express'?'Estafeta exprés':'Mexpost estándar'),'quantity'=>1,'unit_price'=>number_format($q['shipping'],2,'.','')];
+ $url='https://lavdigitalmkt.com/?mkt_order='.$ref;
+ return ['type'=>'online','processing_mode'=>'manual','capture_mode'=>'automatic','total_amount'=>number_format($q['total'],2,'.',''),'external_reference'=>$ref,'expiration_time'=>'PT1H','payer'=>['email'=>$email],'items'=>$items,'config'=>['online'=>['success_url'=>$url,'pending_url'=>$url,'failure_url'=>$url,'auto_return'=>'all']]];
+}
+function orderState(array $cfg,array $local,array $remote):string{
+ if(($remote['id']??'')!==($local['mp_order_id']??'')||($remote['external_reference']??'')!==$local['reference']||(string)($remote['user_id']??'')!==(string)$cfg['merchant_id']||($remote['currency']??$remote['currency_id']??'')!=='MXN'||(int)round((float)($remote['total_amount']??0)*100)!==(int)$local['total']*100)throw new RuntimeException('Order mismatch');
+ if(($local['environment']??'')!==($cfg['environment']??''))throw new RuntimeException('Environment mismatch');
+ $status=$remote['status']??'';
+ if($status==='processed'&&($remote['status_detail']??'')==='accredited'&&(int)round((float)($remote['total_paid_amount']??0)*100)===(int)$local['total']*100)return 'paid';
+ return match($status){'failed'=>'failed','canceled','expired'=>'canceled','refunded'=>'refunded','charged_back'=>'charged_back',default=>'pending'};
+}
+function refreshOrder(array $cfg,string $id,?string $expected=null):array{
+ if(!validOrderId($id))fail('Order inválida.');$p=mp($cfg,'/v1/orders/'.rawurlencode($id));$r=(string)($p['external_reference']??'');if($expected!==null&&!hash_equals($expected,$r))fail('Referencia incorrecta.',403);
+ $o=readOrder($r);$o['status']=orderState($cfg,$o,$p);$o['updated']=gmdate('c');saveOrder($o);return ['status'=>$o['status'],'reference'=>$r,'environment'=>$o['environment']];
+}
+function validSignature(string $id,string $req,string $sig,string $secret):bool{
+ $parts=[];foreach(explode(',',$sig) as $piece){$v=explode('=',trim($piece),2);if(count($v)===2)$parts[$v[0]]=$v[1];}
+ $ts=$parts['ts']??'';$v1=$parts['v1']??'';return validOrderId($id)&&$req!==''&&ctype_digit($ts)&&strlen($secret)>=32&&hash_equals(hash_hmac('sha256','id:'.strtolower($id).';request-id:'.$req.';ts:'.$ts.';',$secret),$v1);
+}
 if(defined('LAV_MKT_TEST'))return;
 try{
  $cfg=config();$cat=catalog();$action=$_GET['action']??'';
  if($_SERVER['REQUEST_METHOD']!=='POST')fail('Método no permitido.',405);
  $raw=file_get_contents('php://input',false,null,0,65537);if(strlen($raw)>65536)fail('Solicitud demasiado grande.',413);$d=json_decode($raw,true,512,JSON_THROW_ON_ERROR);if(!is_array($d))fail('Datos inválidos.');
- if($action==='quote'){ $q=calculate($d,$cat,$cfg);unset($q['lines']);send($q);}
+ $test=isTest($cfg);$testAuthorized=authorizedTest($cfg,$d);$effective=$cfg;
+ if($test)$effective['enabled']=$testAuthorized;elseif(($cfg['environment']??'')!=='production')$effective['enabled']=false;
+ if($action==='quote'){ $q=calculate($d,$cat,$effective);unset($q['lines']);$q['test']=$testAuthorized; if($testAuthorized)$q['message']='MODO DE PRUEBA: utiliza únicamente la tarjeta de prueba de Mercado Pago. No se procesará un pedido real.';send($q);}
+ if($action==='webhook'){
+ $id=(string)($d['data']['id']??'');$queryId=(string)($_GET['data_id']??'');$req=$_SERVER['HTTP_X_REQUEST_ID']??'';$sig=$_SERVER['HTTP_X_SIGNATURE']??'';
+ if(($d['type']??'')!=='order'||$id!==$queryId||!validSignature($id,$req,$sig,(string)($cfg['webhook_secret']??'')))fail('Firma inválida.',401);
+ if(!isset($d['live_mode'])||$d['live_mode']!==!$test||(string)($d['user_id']??'')!==(string)($cfg['merchant_id']??''))fail('Entorno o cuenta incorrecta.',403);
+ refreshOrder($cfg,$id);send(['ok'=>true]);}
+ $cfg=$effective;
  if(!($cfg['enabled']??false)||empty($cfg['access_token'])||empty($cfg['webhook_secret'])||empty($cfg['merchant_id']))fail('Pago en línea pendiente de activación.',503);
  if($action==='checkout'){
  $q=calculate($d,$cat,$cfg);if(!$q['payable'])fail('El envío o pago requiere confirmación.');
  $name=textField($d,'name',100);$email=textField($d,'email',150);$phone=textField($d,'phone',30);$address=textField($d,'address',400);
  if(!$name||!filter_var($email,FILTER_VALIDATE_EMAIL)||strlen($phone)<7||($q['method']!=='digital'&&!$address))fail('Completa los datos del pedido.');
- $r=bin2hex(random_bytes(16));$o=['reference'=>$r,'status'=>'pending','created'=>gmdate('c'),'total'=>$q['total'],'customer'=>['name'=>$name,'email'=>$email,'phone'=>$phone,'address'=>$address,'cp'=>$q['cp']],'order'=>$q];saveOrder($o);
- $items=$q['lines'];if($q['shipping'])$items[]=['id'=>'shipping','title'=>'Envío '.$q['method'],'quantity'=>1,'currency_id'=>'MXN','unit_price'=>$q['shipping']];
- $url='https://lavdigitalmkt.com/?mkt_order='.$r;
- $p=mp($cfg,'/checkout/preferences',['items'=>$items,'external_reference'=>$r,'payer'=>['email'=>$email],'back_urls'=>['success'=>$url,'pending'=>$url,'failure'=>$url],'auto_return'=>'approved','notification_url'=>'https://lavdigitalmkt.com/mkt-commerce/api.php?action=webhook&source_news=webhooks','expires'=>true,'expiration_date_to'=>gmdate('Y-m-d\TH:i:s.000\Z',time()+3600)]);
- $target=$p['init_point']??'';if(!is_string($target)||!preg_match('~^https://([a-z0-9-]+\.)?mercadopago\.com(\.mx)?/~i',$target))fail('Enlace de pago no válido.',502);$o['preference_id']=$p['id']??'';saveOrder($o);send(['url'=>$target,'reference'=>$r]);}
- if($action==='status'){$r=textField($d,'reference',32);$o=readOrder($r);$id=textField($d,'payment_id',25);if($id!=='')send(payment($cfg,$id,$r));send(['status'=>$o['status'],'reference'=>$r]);}
- if($action==='webhook'){
- $id=(string)($d['data']['id']??'');$queryId=(string)($_GET['data_id']??'');$requestId=$_SERVER['HTTP_X_REQUEST_ID']??'';$sig=$_SERVER['HTTP_X_SIGNATURE']??'';$parts=[];foreach(explode(',',$sig) as $piece){$v=explode('=',trim($piece),2);if(count($v)===2)$parts[$v[0]]=$v[1];}
- $ts=$parts['ts']??'';$v1=$parts['v1']??'';if($id!==$queryId||!preg_match('/^\d+$/D',$id)||!$requestId||!ctype_digit($ts)||!hash_equals(hash_hmac('sha256','id:'.$id.';request-id:'.$requestId.';ts:'.$ts.';',$cfg['webhook_secret']),$v1))fail('Firma inválida.',401);
- if(($d['type']??'')==='payment')payment($cfg,$id);send(['ok'=>true]);}
+ $r=bin2hex(random_bytes(16));$o=['reference'=>$r,'environment'=>$cfg['environment'],'status'=>'pending','created'=>gmdate('c'),'total'=>$q['total'],'customer'=>['name'=>$name,'email'=>$email,'phone'=>$phone,'address'=>$address,'cp'=>$q['cp']],'order'=>$q];saveOrder($o);
+ $p=mp($cfg,'/v1/orders',orderPayload($q,$r,$email),uuid());
+ $id=(string)($p['id']??'');$target=$p['checkout_url']??'';
+ if(!validOrderId($id)||($p['external_reference']??'')!==$r||($p['currency']??$p['currency_id']??'')!=='MXN'||(string)($p['user_id']??'')!==(string)$cfg['merchant_id']||(int)round((float)($p['total_amount']??0)*100)!==$q['total']*100||!is_string($target)||!preg_match('~^https://www\.mercadopago\.com\.mx/checkout/~D',$target))fail('Respuesta de Mercado Pago no válida.',502);
+ if($test&&!str_starts_with($id,'ORDTST'))fail('La orden no corresponde a pruebas. No continuar.',409);
+ $o['mp_order_id']=$id;saveOrder($o);send(['url'=>$target,'reference'=>$r,'test'=>$test]);}
+ if($action==='status'){$r=textField($d,'reference',32);$o=readOrder($r);if(!empty($o['mp_order_id']))send(refreshOrder($cfg,$o['mp_order_id'],$r));send(['status'=>$o['status'],'reference'=>$r,'environment'=>$o['environment']??'']);}
  fail('Acción desconocida.',404);
 }catch(Throwable $e){error_log('LAV MKT commerce error: '.get_class($e));fail('No se pudo procesar el pedido.',500);}

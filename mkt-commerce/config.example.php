@@ -3,6 +3,9 @@
 // Activar solo después de probar Mercado Pago y validar cobertura, pesos y destinos.
 return [
  'enabled' => false,
+ 'environment' => 'test',
+ // Clave privada de acceso temporal para probar el carrito; al menos 20 caracteres.
+ 'test_key' => '',
  'access_token' => '',
  'webhook_secret' => '',
  'merchant_id' => '',
