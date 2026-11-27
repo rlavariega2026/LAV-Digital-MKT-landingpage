@@ -10,4 +10,7 @@ checkOrders(orderState($cfg,$local,$remote),'paid');$remote['total_paid_amount']
 $remote['total_amount']='1.00';try{orderState($cfg,$local,$remote);throw new LogicException('Expected mismatch');}catch(RuntimeException $e){}
 $ts='1742505638683';$req='test-request';$sig='ts='.$ts.',v1='.hash_hmac('sha256','id:'.strtolower($id).';request-id:'.$req.';ts:'.$ts.';',$cfg['webhook_secret']);
 checkOrders(validSignature($id,$req,$sig,$cfg['webhook_secret']),true);checkOrders(validSignature($id,$req,$sig,str_repeat('z',64)),false);
+checkOrders(str_contains(testAccessMessage([],[]),'No se encontró'),true);
+checkOrders(str_contains(testAccessMessage(['environment'=>'test'],[]),'falta la línea test_key'),true);
+checkOrders(str_contains(testAccessMessage($cfg,['test_key'=>'incorrecta']),'no coincide'),true);
 echo "MKT_ORDERS_TESTS_OK\n";
