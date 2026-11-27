@@ -47,3 +47,60 @@ jobs:
             **/LEEME.txt
             mkt-commerce/tests/**
             mkt-commerce/config.example.php
+
+      - name: Verify public storefront and shipping API
+        run: |
+          curl --fail --silent --show-error --max-time 25 -H 'Cache-Control: no-cache' "https://lavdigitalmkt.com/?check=$GITHUB_SHA" -o /tmp/mkt-live.html
+          grep -q 'id="mktCartOpen"' /tmp/mkt-live.html
+          grep -q 'id="mkt-envios"' /tmp/mkt-live.html
+          curl --fail --silent --show-error --max-time 25 "https://lavdigitalmkt.com/mkt-commerce/catalog.json?check=$GITHUB_SHA" -o /tmp/mkt-catalog.json
+          python3 - <<'PY'
+          import json
+          c=json.load(open('/tmp/mkt-catalog.json'))
+          assert [z['price'] for z in c['zones']]==[150,170,190,200,210,220,230]
+          assert c['express']['price']==335 and len(c['items'])==16
+          print('PUBLIC_CATALOG_AND_SHIPPING_OK')
+          PY
+          curl --fail --silent --show-error -H 'Content-Type: application/json' -d '{"items":[{"id":"nfc","qty":1,"large":0}],"method":"express","cp":"62000"}' 'https://lavdigitalmkt.com/mkt-commerce/api.php?action=quote' -o /tmp/mkt-quote.json
+          python3 - <<'PY'
+          import json
+          q=json.load(open('/tmp/mkt-quote.json'))
+          assert (q['subtotal'],q['shipping'],q['total'])==(500,335,835)
+          print('PUBLIC_EXPRESS_QUOTE_OK')
+          PY
+      - name: Browser smoke test public cart on mobile and desktop
+        run: |
+          mkdir -p /tmp/mkt-browser
+          cd /tmp/mkt-browser
+          npm install --no-audit --no-fund playwright
+          npx playwright install chromium
+          cat > verify.cjs <<'JS'
+          const {chromium}=require('playwright'),assert=require('node:assert/strict');
+          (async()=>{
+            const b=await chromium.launch({args:['--no-sandbox']});
+            for(const width of [390,1366]){
+              const p=await b.newPage({viewport:{width,height:900},serviceWorkers:'block'});
+              const errors=[];p.on('pageerror',e=>errors.push(e.message));
+              await p.goto('https://lavdigitalmkt.com/?check='+process.env.GITHUB_SHA,{waitUntil:'domcontentloaded'});
+              await p.locator('[data-mkt-item="nfc"] .mkt-add').click({timeout:10000});
+              await p.locator('#mktCart[open]').waitFor();
+              await p.locator('#mktOrder [name="cp"]').fill('62000');
+              await p.locator('#mktOrder [name="method"]').selectOption('express');
+              await p.waitForFunction(()=>document.querySelector('#mktTotals').textContent.includes('835.00'));
+              assert(await p.locator('#mktTotals').innerText().then(x=>x.includes('335.00')));
+              await p.locator('#mktOrder [name="method"]').selectOption('standard');
+              await p.locator('#mktOrder [name="zone"]').selectOption('G');
+              await p.waitForFunction(()=>document.querySelector('#mktTotals').textContent.includes('730.00'));
+              await p.locator('#mktLines button').first().click();
+              await p.locator('#mktClose').click();
+              await p.locator('[data-mkt-item="digital"] .mkt-add').click();
+              assert(await p.locator('#mktPhysical').isHidden());
+              await p.waitForFunction(()=>document.querySelector('#mktTotals').textContent.includes('400.00'));
+              assert.equal(errors.length,0,errors.join('; '));
+              console.log('PUBLIC_CART_OK',width);
+              await p.close();
+            }
+            await b.close();
+          })().catch(e=>{console.error(e);process.exit(1)});
+          JS
+          node verify.cjs
